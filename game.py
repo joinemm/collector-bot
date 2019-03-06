@@ -46,19 +46,6 @@ class Game(commands.Cog):
         self.counter = self.threshold + 1
 
     @commands.command()
-    async def add(self, ctx, *args):
-        try:
-            question, answer, response = [x.strip() for x in " ".join(args).split("|")]
-        except ValueError:
-            await ctx.send(f"ERROR: Invalid format.\n"
-                           f"`{self.client.command_prefix}add [question] | [answer] | [response]`")
-            return
-
-        database.add_question(question, answer, response)
-        await ctx.send(f"Added a new question `{question}` with the correct answer being `{answer}`\n"
-                       f"and response on success being `{response}`")
-
-    @commands.command()
     async def addimage(self, ctx, *args):
         try:
             quote, answer, response = [x.strip() for x in " ".join(args).split("|")]
@@ -72,6 +59,14 @@ class Game(commands.Cog):
         await ctx.send(f"Added a new quote image `{quote}`", file=discord.File(open(f'img/{quote}', 'rb')))
         await ctx.send(f"with the correct answer being `{answer}`\n"
                        f"and response on success being `{response}`", file=discord.File(open(f'img/{response}', 'rb')))
+
+    @commands.command()
+    async def removeimage(self, ctx, key):
+        response = database.remove_image(key)
+        if response:
+            await ctx.send(f"Successfully removed {key}")
+        else:
+            await ctx.send(f"Image {key} doesn't exist.")
 
     @commands.command()
     async def setup(self, ctx, setting, value):
