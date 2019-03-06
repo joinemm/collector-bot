@@ -1,6 +1,6 @@
 from discord.ext import commands
 
-TOKEN = "NTUyNzkyMTIxNjk5MjA1MTIw.D2ErjQ.jzt5tVhKr4QdbM3xcZ2uOYw63rg"
+TOKEN = "XXX"
 extensions = ["game"]
 
 client = commands.Bot(command_prefix="c.")
