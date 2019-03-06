@@ -57,4 +57,4 @@ class Database:
         """Get a setting"""
         return self.data['settings'].get(setting, default)
 
-    
+
