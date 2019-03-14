@@ -22,6 +22,7 @@ class Game(commands.Cog):
         # correct guess
         if self.current_question is not None and message.content.lower() == self.correct_answer:
             await message.channel.send(file=discord.File(open(database.get_response(self.current_question), "rb")))
+            database.add_inventory_item(message.author, self.current_question)
             self.correct_answer = None
             self.current_question = None
             return
@@ -39,7 +40,7 @@ class Game(commands.Cog):
 
     @commands.command()
     async def status(self, ctx):
-        await ctx.send(f"Counter: **{self.counter}**\nThreshold: **{self.threshold}**")
+        await ctx.send(f"Counter: **{self.counter}**\nNext spawn at: **{self.threshold}**")
 
     @commands.command()
     async def spawn(self, ctx):
@@ -90,6 +91,18 @@ class Game(commands.Cog):
 
             database.change_setting("frequency", (min_value, max_value))
             await ctx.send(f"New questions will now be posted every {min_value} to {max_value} messages.")
+
+    @commands.command()
+    async def inventory(self, ctx):
+        content = discord.Embed(title=f"{ctx.author.name}'s inventory")
+        content.description = ""
+        for item, qty in database.get_inventory(ctx.author).items():
+            answer = database.get_answer(item)
+            content.description += f"{answer} : **{qty}**"
+
+        if content.description == "":
+            content.description = "Your inventory is empty"
+        await ctx.send(embed=content)
 
 
 def setup(client):

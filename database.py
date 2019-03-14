@@ -57,4 +57,49 @@ class Database:
         """Get a setting"""
         return self.data['settings'].get(setting, default)
 
+    def get_inventory(self, user):
+        if str(user.id) in self.data['users']:
+            return self.data['users'][str(user.id)]
+        else:
+            return {}
 
+    def add_inventory_item(self, user, item, amount=1):
+        """Add inventory item to given user"""
+
+        # create user entry if it doesn't exist
+        if str(user.id) not in self.data['users']:
+            self.data['users'][str(user.id)] = {}
+
+        # add [amount] to the quantity of item, or create it with value of [amount]
+        if item in self.data['users'][str(user.id)]:
+            self.data['users'][str(user.id)][item] += amount
+        else:
+            self.data['users'][str(user.id)][item] = amount
+
+        # save modified data to file
+        self.save_data()
+        print(f"Added {amount} [{item}] to user [{user.name}#{user.discriminator}]")
+
+    def remove_inventory_item(self, user, item, amount=1):
+        """Remove inventory item from given user
+        :returns False if removal failed, True on success"""
+
+        # if user doesn't exist, just return
+        if str(user.id) not in self.data['users']:
+            return False
+
+        # if item doesn't exist, just return
+        if item not in self.data['users'][str(user.id)]:
+            return False
+
+        # remove [amount] from item quantity
+        self.data['users'][str(user.id)][item] -= amount
+
+        # if 0 or less, cleanup and delete entry
+        if self.data['users'][str(user.id)][item] <= 0:
+            del self.data['users'][str(user.id)][item]
+
+        # save modified data to file
+        self.save_data()
+        print(f"Removed {amount} [{item}] from user [{user.name}#{user.discriminator}]")
+        return True
