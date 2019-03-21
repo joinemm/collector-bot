@@ -34,8 +34,8 @@ class Events(commands.Cog):
 
         elif isinstance(error, commands.NotOwner):
             print(str(error))
-            return await ctx.send(f"Sorry, this command usable by the bot owner only! "
-                                  f"({await self.client.application_info().owner})")
+            owner = await self.client.application_info().owner
+            return await ctx.send(f"Sorry, this command usable by the bot owner only! ({owner})")
 
         elif isinstance(error, commands.MissingPermissions):
             print(str(error))

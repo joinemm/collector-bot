@@ -44,22 +44,27 @@ class Game(commands.Cog):
             self.sending = False
 
     @commands.command()
+    @commands.is_owner()
     async def status(self, ctx):
+        """See how close the next spawn is"""
         await ctx.send(f"Counter: **{self.counter}**\nNext spawn at: **{self.threshold}**")
 
     @commands.command()
     @commands.is_owner()
     async def spawn(self, ctx):
+        """Set image to spawn on next message"""
         self.counter = self.threshold
 
     @commands.command()
+    @commands.is_owner()
     async def addimage(self, ctx, *args):
+        """Add a new image"""
         try:
             quote, answer, response, f = [x.strip() for x in " ".join(args).split("|")]
         except ValueError:
             await ctx.send(f"ERROR: Invalid format.\n"
                            f"`{self.client.command_prefix}add "
-                           f"[quote.filename] | [answer] | [response.filename] | frequency`")
+                           f"<quote.filename> | <answer> | <response.filename]>| <frequency>`")
             return
 
         database.add_image(quote, answer, response, f)
@@ -69,15 +74,19 @@ class Game(commands.Cog):
                        f"and response on success being `{response}`", file=discord.File(open(f'img/{response}', 'rb')))
 
     @commands.command()
+    @commands.is_owner()
     async def removeimage(self, ctx, key):
+        """Remove existing image"""
         response = database.remove_image(key)
         if response:
-            await ctx.send(f"Successfully removed {key}")
+            await ctx.send(f"Successfully removed `{key}`")
         else:
-            await ctx.send(f"Image {key} doesn't exist.")
+            await ctx.send(f"Image `{key}`` doesn't exist.")
 
     @commands.command()
+    @commands.is_owner()
     async def setup(self, ctx, setting=None, value=None):
+        """Setup bot settings"""
         if setting == 'channel':
             channel = await commands.TextChannelConverter().convert(ctx, value)
             if channel is None:
@@ -109,6 +118,7 @@ class Game(commands.Cog):
 
     @commands.command()
     async def inventory(self, ctx):
+        """see your inventory"""
         content = discord.Embed(title=f"{ctx.author.name}'s inventory")
         content.description = ""
         for item, qty in database.get_inventory(ctx.author).items():
