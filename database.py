@@ -25,10 +25,11 @@ class Database:
         self.data['settings'][setting] = value
         self.save_data()
 
-    def add_image(self, f1, answer, f2):
+    def add_image(self, f1, answer, f2, freq):
         """Add image entry"""
         entry = {"filename_question": "img/" + f1,
                  "answer": answer,
+                 "frequency": freq,
                  "filename_response": "img/" + f2}
         self.data['images'][f1] = entry
         self.save_data()
@@ -43,6 +44,9 @@ class Database:
 
     def get_images_list(self):
         return list(self.data['images'].keys())
+
+    def get_weights(self):
+        return list(x.get('frequency') for x in self.data['images'])
 
     def get_answer(self, question):
         return self.data['images'][question].get('answer')

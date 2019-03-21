@@ -31,7 +31,7 @@ class Game(commands.Cog):
         if not self.sending and self.counter > self.threshold:
             # spawn image
             self.sending = True
-            self.current_question = random.choice(database.get_images_list())
+            self.current_question = random.choices(database.get_images_list(), database.get_weights())
             await message.channel.send(file=discord.File(open(database.get_filename(self.current_question), "rb")))
             self.counter = 0
             self.threshold = random.randint(*database.get_setting("frequency", (10 - 20)))
@@ -43,21 +43,23 @@ class Game(commands.Cog):
         await ctx.send(f"Counter: **{self.counter}**\nNext spawn at: **{self.threshold}**")
 
     @commands.command()
+    @commands.is_owner()
     async def spawn(self, ctx):
         self.counter = self.threshold + 1
 
     @commands.command()
     async def addimage(self, ctx, *args):
         try:
-            quote, answer, response = [x.strip() for x in " ".join(args).split("|")]
+            quote, answer, response, f = [x.strip() for x in " ".join(args).split("|")]
         except ValueError:
             await ctx.send(f"ERROR: Invalid format.\n"
-                           f"`{self.client.command_prefix}add [quote.filename] | [answer] | [response.filename]`")
+                           f"`{self.client.command_prefix}add "
+                           f"[quote.filename] | [answer] | [response.filename] | frequency`")
             return
 
-        database.add_image(quote, answer, response)
+        database.add_image(quote, answer, response, f)
 
-        await ctx.send(f"Added a new quote image `{quote}`", file=discord.File(open(f'img/{quote}', 'rb')))
+        await ctx.send(f"Added a new quote image `{quote}` with frequency `{f}`", file=discord.File(open(f'img/{quote}', 'rb')))
         await ctx.send(f"with the correct answer being `{answer}`\n"
                        f"and response on success being `{response}`", file=discord.File(open(f'img/{response}', 'rb')))
 
