@@ -1,4 +1,41 @@
+# Author : Joinemm
+# File   : database.py
+
 import json
+
+""" DATABASE STRUCTURE ### data.json
+{
+    "settings": {
+        "frequency": [
+            xx,
+            xxx
+        ],
+        "channel": <channel>
+    },
+    "users": {
+        "<user_id>": {
+            "<inventory_item>": x
+        },
+        .
+        .
+        .
+        
+    },
+    "questions": {},
+    "images": {
+        "<name>": {
+            "filename_question": "<filename>",
+            "answer": "<correct_answer>",
+            "frequency": X,
+            "filename_response": "<filename>"
+        },
+        .
+        .
+        .
+        
+    }
+}
+"""
 
 
 class Database:
@@ -46,7 +83,10 @@ class Database:
         return list(self.data['images'].keys())
 
     def get_weights(self):
-        return list(x.get('frequency') for x in self.data['images'])
+        w = []
+        for x in self.data['images']:
+            w.append(self.data['images'][x].get('frequency', 1))
+        return w
 
     def get_answer(self, question):
         return self.data['images'][question].get('answer')

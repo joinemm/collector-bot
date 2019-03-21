@@ -1,9 +1,12 @@
+# Author : Joinemm
+# File   : main.py
+
 from discord.ext import commands
 
-TOKEN = "XXX"
-extensions = ["game"]
+TOKEN = "XXX"  # your token here
+extensions = ["game", "errors"]
 
-client = commands.Bot(command_prefix="c.")
+client = commands.Bot(command_prefix="q!")  # change prefix here
 
 
 @client.event

@@ -1,3 +1,6 @@
+# Author : Joinemm
+# File   : game.py
+
 import discord
 from discord.ext import commands
 import random
@@ -21,7 +24,8 @@ class Game(commands.Cog):
 
         # correct guess
         if self.current_question is not None and message.content.lower() == self.correct_answer:
-            await message.channel.send(file=discord.File(open(database.get_response(self.current_question), "rb")))
+            channel = message.guild.get_channel(database.get_setting("channel", message.channel.id))
+            await channel.send(file=discord.File(open(database.get_response(self.current_question), "rb")))
             database.add_inventory_item(message.author, self.current_question)
             self.correct_answer = None
             self.current_question = None
@@ -31,8 +35,9 @@ class Game(commands.Cog):
         if not self.sending and self.counter > self.threshold:
             # spawn image
             self.sending = True
-            self.current_question = random.choices(database.get_images_list(), database.get_weights())
-            await message.channel.send(file=discord.File(open(database.get_filename(self.current_question), "rb")))
+            self.current_question = random.choices(database.get_images_list(), database.get_weights())[0]
+            channel = message.guild.get_channel(database.get_setting("channel", message.channel.id))
+            await channel.send(file=discord.File(open(database.get_filename(self.current_question), "rb")))
             self.counter = 0
             self.threshold = random.randint(*database.get_setting("frequency", (10 - 20)))
             self.correct_answer = database.get_answer(self.current_question)
@@ -45,7 +50,7 @@ class Game(commands.Cog):
     @commands.command()
     @commands.is_owner()
     async def spawn(self, ctx):
-        self.counter = self.threshold + 1
+        self.counter = self.threshold
 
     @commands.command()
     async def addimage(self, ctx, *args):
@@ -72,7 +77,7 @@ class Game(commands.Cog):
             await ctx.send(f"Image {key} doesn't exist.")
 
     @commands.command()
-    async def setup(self, ctx, setting, value):
+    async def setup(self, ctx, setting=None, value=None):
         if setting == 'channel':
             channel = await commands.TextChannelConverter().convert(ctx, value)
             if channel is None:
@@ -93,6 +98,14 @@ class Game(commands.Cog):
 
             database.change_setting("frequency", (min_value, max_value))
             await ctx.send(f"New questions will now be posted every {min_value} to {max_value} messages.")
+        else:
+            f = database.get_setting('frequency', (10, 20))
+            c = ctx.guild.get_channel(database.get_setting('channel'))
+            m = f"**Current settings:**\n" \
+                f"Channel = {c.mention if c is not None else 'None'}\n" \
+                f"Frequency = every {f[0]} to {f[1]} messages"
+
+            await ctx.send(m)
 
     @commands.command()
     async def inventory(self, ctx):
