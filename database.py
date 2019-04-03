@@ -2,6 +2,9 @@
 # File   : database.py
 
 import json
+import os
+import random
+
 
 """ DATABASE STRUCTURE ### data.json
 {
@@ -21,19 +24,17 @@ import json
         .
         
     },
-    "questions": {},
-    "images": {
-        "<name>": {
-            "filename_question": "<filename>",
+    "quotes": [
+        {
+            "question": "<question>",
             "answer": "<correct_answer>",
-            "frequency": X,
-            "filename_response": "<filename>"
+            "frequency": X
         },
         .
         .
         .
         
-    }
+    ]
 }
 """
 
@@ -49,8 +50,8 @@ class Database:
                 self.data['settings'] = {}
             if 'users' not in self.data:
                 self.data['users'] = {}
-            if 'images' not in self.data:
-                self.data['images'] = {}
+            if 'quotes' not in self.data:
+                self.data['quotes'] = []
 
     def save_data(self):
         """Save data to file"""
@@ -62,40 +63,20 @@ class Database:
         self.data['settings'][setting] = value
         self.save_data()
 
-    def add_image(self, f1, answer, f2, freq):
-        """Add image entry"""
-        entry = {"filename_question": "img/" + f1,
+    def add_quote(self, question, answer, freq):
+        """Add quote entry"""
+        entry = {"question": question,
                  "answer": answer,
-                 "frequency": freq,
-                 "filename_response": "img/" + f2}
-        self.data['images'][f1] = entry
+                 "frequency": freq}
+        self.data['quotes'].append(entry)
         self.save_data()
 
-    def remove_image(self, key):
-        if key in self.data['images']:
-            del self.data['images'][key]
-            self.save_data()
-            return True
-        else:
-            return False
+    def get_quotes_and_weights(self):
+        entries = self.data.get('quotes')
+        return entries, [x.get('frequency') for x in entries]
 
-    def get_images_list(self):
-        return list(self.data['images'].keys())
-
-    def get_weights(self):
-        w = []
-        for x in self.data['images']:
-            w.append(self.data['images'][x].get('frequency', 1))
-        return w
-
-    def get_answer(self, question):
-        return self.data['images'][question].get('answer')
-
-    def get_response(self, question):
-        return self.data['images'][question].get('filename_response')
-
-    def get_filename(self, question):
-        return self.data['images'][question].get('filename_question')
+    def get_random_image(self):
+        return 'img/' + random.choice(os.listdir('img/'))
 
     def get_setting(self, setting, default=None):
         """Get a setting"""
