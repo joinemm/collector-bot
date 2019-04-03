@@ -5,6 +5,7 @@ import discord
 from discord.ext import commands
 import random
 import database
+import asyncio
 
 database = database.Database()
 
@@ -16,31 +17,29 @@ class Game(commands.Cog):
         self.counter = 0
         self.threshold = random.randint(*database.get_setting("frequency", (10, 20)))
         self.current_question = None
-        self.correct_answer = None
         self.sending = False
 
     @commands.Cog.listener()
     async def on_message(self, message):
+        self.counter += 1
+        channel = message.guild.get_channel(database.get_setting("channel", message.channel.id))
 
         # correct guess
-        if self.current_question is not None and message.content.lower() == self.correct_answer:
-            channel = message.guild.get_channel(database.get_setting("channel", message.channel.id))
-            await channel.send(file=discord.File(open(database.get_response(self.current_question), "rb")))
-            database.add_inventory_item(message.author, self.current_question)
-            self.correct_answer = None
+        if self.current_question is not None and message.content.lower() == self.current_question.get('answer').lower():
+            response_image = database.get_random_image()
+            await channel.send(file=discord.File(response_image))
+            database.add_inventory_item(message.author, response_image)
             self.current_question = None
             return
 
-        self.counter += 1
         if not self.sending and self.counter > self.threshold:
-            # spawn image
+            # spawn question
             self.sending = True
-            self.current_question = random.choices(database.get_images_list(), database.get_weights())[0]
-            channel = message.guild.get_channel(database.get_setting("channel", message.channel.id))
-            await channel.send(file=discord.File(open(database.get_filename(self.current_question), "rb")))
+            quotes, weights = database.get_quotes_and_weights()
+            self.current_question = random.choices(quotes, weights)[0]
+            await channel.send(self.current_question.get('question'))
             self.counter = 0
             self.threshold = random.randint(*database.get_setting("frequency", (10 - 20)))
-            self.correct_answer = database.get_answer(self.current_question)
             self.sending = False
 
     @commands.command()
@@ -57,31 +56,102 @@ class Game(commands.Cog):
 
     @commands.command()
     @commands.is_owner()
-    async def addimage(self, ctx, *args):
-        """Add a new image"""
-        try:
-            quote, answer, response, f = [x.strip() for x in " ".join(args).split("|")]
-        except ValueError:
-            await ctx.send(f"ERROR: Invalid format.\n"
-                           f"`{self.client.command_prefix}add "
-                           f"<quote.filename> | <answer> | <response.filename]>| <frequency>`")
-            return
+    async def distribution(self, ctx, amount=100):
+        results = {}
+        for i in range(int(amount)):
+            quotes, weights = database.get_quotes_and_weights()
+            result = random.choices(quotes, weights)[0].get('question')
+            if result in results:
+                results[result] += 1
+            else:
+                results[result] = 1
 
-        database.add_image(quote, answer, response, f)
+        text = f"testing distribution for {amount} spawns...```"
+        for x in results:
+            text += f"\n{results[x]:2d} : {x}"
 
-        await ctx.send(f"Added a new quote image `{quote}` with frequency `{f}`", file=discord.File(open(f'img/{quote}', 'rb')))
-        await ctx.send(f"with the correct answer being `{answer}`\n"
-                       f"and response on success being `{response}`", file=discord.File(open(f'img/{response}', 'rb')))
+        await ctx.send(text + "```")
 
     @commands.command()
     @commands.is_owner()
-    async def removeimage(self, ctx, key):
-        """Remove existing image"""
-        response = database.remove_image(key)
-        if response:
-            await ctx.send(f"Successfully removed `{key}`")
+    async def questions(self, ctx):
+        quotes, weights = database.get_quotes_and_weights()
+
+        rows = []
+        pages = []
+        for q in quotes:
+            rows.append(f"{q.get('frequency'):2d} : {q.get('question')}")
+
+            if len(rows) == 20:
+                pages.append("\n".join(rows))
+                rows = []
+
+        if rows:
+            pages.append("\n".join(rows))
+
+        content = discord.Embed(title="All questions and frequencies")
+        if not pages:
+            content.description = "No questions in database"
         else:
-            await ctx.send(f"Image `{key}`` doesn't exist.")
+            content.description = pages[0]
+
+        content.set_footer(text=f"page 1 of {len(pages)}")
+        my_msg = await ctx.send(embed=content)
+
+        if len(pages) > 1:
+
+            current_page = 0
+
+            def check(_reaction, _user):
+                return _reaction.message.id == my_msg.id and _reaction.emoji in ["⬅", "➡"] \
+                       and not _user == self.client.user
+
+            await my_msg.add_reaction("⬅")
+            await my_msg.add_reaction("➡")
+
+            while True:
+                try:
+                    reaction, user = await self.client.wait_for('reaction_add', timeout=3600.0, check=check)
+                except asyncio.TimeoutError:
+                    return
+                else:
+                    try:
+                        if reaction.emoji == "⬅" and current_page > 0:
+                            content.description = pages[current_page - 1]
+                            current_page -= 1
+                            await my_msg.remove_reaction("⬅", user)
+                        elif reaction.emoji == "➡":
+                            content.description = pages[current_page + 1]
+                            current_page += 1
+                            await my_msg.remove_reaction("➡", user)
+                        else:
+                            continue
+                        content.set_footer(text=f"page {current_page + 1} of {len(pages)}")
+                        await my_msg.edit(embed=content)
+                    except IndexError:
+                        continue
+
+    @commands.command()
+    @commands.is_owner()
+    async def addquestion(self, ctx, *args):
+        """Add a new image"""
+        try:
+            variables = [x.strip() for x in " ".join(args).split("|")]
+            if len(variables) == 2:
+                quote, answer = variables
+                f = 1
+            else:
+                quote, answer, f = variables
+        except ValueError:
+            await ctx.send(f"ERROR: Invalid format.\n"
+                           f"`{self.client.command_prefix}add <question> | <answer> | <frequency>`")
+            return
+
+        database.add_quote(quote, answer, int(f))
+
+        await ctx.send(f"Added a new question: `{quote}`\n"
+                       f"Correct answer: `{answer}`\n"
+                       f"Spawning frequency: `{int(f)}`")
 
     @commands.command()
     @commands.is_owner()
@@ -121,13 +191,58 @@ class Game(commands.Cog):
         """see your inventory"""
         content = discord.Embed(title=f"{ctx.author.name}'s inventory")
         content.description = ""
+        rows = []
+        pages = []
         for item, qty in database.get_inventory(ctx.author).items():
-            answer = database.get_answer(item)
-            content.description += f"{answer} : **{qty}**"
+            rows.append(f"{item} : **{qty}**")
 
-        if content.description == "":
+            if len(rows) == 10:
+                pages.append("\n".join(rows))
+                rows = []
+
+        if rows:
+            pages.append("\n".join(rows))
+
+        if not pages:
             content.description = "Your inventory is empty"
-        await ctx.send(embed=content)
+        else:
+            content.description = pages[0]
+
+        content.set_footer(text=f"page 1 of {len(pages)}")
+        my_msg = await ctx.send(embed=content)
+
+        if len(pages) > 1:
+
+            current_page = 0
+
+            def check(_reaction, _user):
+                return _reaction.message.id == my_msg.id and _reaction.emoji in ["⬅", "➡"] \
+                       and not _user == self.client.user
+
+            await my_msg.add_reaction("⬅")
+            await my_msg.add_reaction("➡")
+
+            while True:
+                try:
+                    reaction, user = await self.client.wait_for('reaction_add', timeout=3600.0, check=check)
+                except asyncio.TimeoutError:
+                    return
+                else:
+                    try:
+                        if reaction.emoji == "⬅" and current_page > 0:
+                            content.description = pages[current_page - 1]
+                            current_page -= 1
+                            await my_msg.remove_reaction("⬅", user)
+                        elif reaction.emoji == "➡":
+                            content.description = pages[current_page + 1]
+                            current_page += 1
+                            await my_msg.remove_reaction("➡", user)
+                        else:
+                            continue
+                        content.set_footer(text=f"page {current_page + 1} of {len(pages)}")
+                        await my_msg.edit(embed=content)
+                    except IndexError:
+                        continue
 
 
 def setup(client):
