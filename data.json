@@ -1,3 +1,18 @@
 {
+    "settings": {
 
+    },
+    "users": {
+
+    },
+    "quotes": [
+        {
+            "question": "This is question?",
+            "answer": "this is answer"
+        },
+        {
+            "question": "This is also question?",
+            "answer": "yes"
+        }
+    ]
 }
