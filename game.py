@@ -35,8 +35,7 @@ class Game(commands.Cog):
         if not self.sending and self.counter > self.threshold:
             # spawn question
             self.sending = True
-            quotes, weights = database.get_quotes_and_weights()
-            self.current_question = random.choices(quotes, weights)[0]
+            self.current_question = random.choice(database.get_questions())
             await channel.send(self.current_question.get('question'))
             self.counter = 0
             self.threshold = random.randint(*database.get_setting("frequency", (10 - 20)))
@@ -57,30 +56,31 @@ class Game(commands.Cog):
     @commands.command()
     @commands.is_owner()
     async def distribution(self, ctx, amount=100):
+        """Test the distribution of reward images"""
         results = {}
         for i in range(int(amount)):
-            quotes, weights = database.get_quotes_and_weights()
-            result = random.choices(quotes, weights)[0].get('question')
+            result = '/'.join(database.get_random_image().split('/')[:-1]) + '/...'
             if result in results:
                 results[result] += 1
             else:
                 results[result] = 1
 
         text = f"testing distribution for {amount} spawns...```"
-        for x in results:
-            text += f"\n{results[x]:2d} : {x}"
+        for x in sorted(results, key=results.get, reverse=True):
+            text += f"\n{results[x]:3d} from folder : {x}"
 
         await ctx.send(text + "```")
 
     @commands.command()
     @commands.is_owner()
     async def questions(self, ctx):
-        quotes, weights = database.get_quotes_and_weights()
+        """Get a list of all questions and answers"""
+        questions = database.get_questions()
 
         rows = []
         pages = []
-        for q in quotes:
-            rows.append(f"{q.get('frequency'):2d} : {q.get('question')}")
+        for q in questions:
+            rows.append(f"{q.get('question')} : {q.get('answer')}")
 
             if len(rows) == 20:
                 pages.append("\n".join(rows))
@@ -95,7 +95,9 @@ class Game(commands.Cog):
         else:
             content.description = pages[0]
 
-        content.set_footer(text=f"page 1 of {len(pages)}")
+        if len(pages) > 1:
+            content.set_footer(text=f"page 1 of {len(pages)}")
+
         my_msg = await ctx.send(embed=content)
 
         if len(pages) > 1:
@@ -133,37 +135,32 @@ class Game(commands.Cog):
 
     @commands.command()
     @commands.is_owner()
-    async def addquestion(self, ctx, *args):
-        """Add a new image"""
+    async def add(self, ctx, *args):
+        """Add a new question"""
         try:
-            variables = [x.strip() for x in " ".join(args).split("|")]
-            if len(variables) == 2:
-                quote, answer = variables
-                f = 1
-            else:
-                quote, answer, f = variables
+            question, answer = [x.strip() for x in " ".join(args).split("|")]
         except ValueError:
-            await ctx.send(f"ERROR: Invalid format.\n"
-                           f"`{self.client.command_prefix}add <question> | <answer> | <frequency>`")
+            await ctx.send(f"`ERROR: Invalid format` Usage: "
+                           f"`{self.client.command_prefix}add <question> | <answer>`")
             return
 
-        database.add_quote(quote, answer, int(f))
+        database.add_question(question, answer)
 
-        await ctx.send(f"Added a new question: `{quote}`\n"
-                       f"Correct answer: `{answer}`\n"
-                       f"Spawning frequency: `{int(f)}`")
+        await ctx.send(f"Added a new question: `{question}`\n"
+                       f"With correct answer: `{answer}`\n")
 
     @commands.command()
     @commands.is_owner()
     async def setup(self, ctx, setting=None, value=None):
         """Setup bot settings"""
         if setting == 'channel':
-            channel = await commands.TextChannelConverter().convert(ctx, value)
-            if channel is None:
-                await ctx.send(f"ERROR: Invalid channel {value}")
+            try:
+                channel = await commands.TextChannelConverter().convert(ctx, value)
+            except commands.errors.BadArgument as e:
+                return await ctx.send(str(e))
 
             database.change_setting("channel", channel.id)
-            await ctx.send(f"Future questions will now be sent to {channel.mention}")
+            await ctx.send(f"New questions will now only be posted to {channel.mention}")
 
         elif setting == 'frequency':
             try:
@@ -194,7 +191,7 @@ class Game(commands.Cog):
         rows = []
         pages = []
         for item, qty in database.get_inventory(ctx.author).items():
-            rows.append(f"{item} : **{qty}**")
+            rows.append(f"{'.'.join(item.split('/')[-1].split('.')[:-1])} : **{qty}**")
 
             if len(rows) == 10:
                 pages.append("\n".join(rows))

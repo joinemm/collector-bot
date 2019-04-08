@@ -27,8 +27,7 @@ import random
     "quotes": [
         {
             "question": "<question>",
-            "answer": "<correct_answer>",
-            "frequency": X
+            "answer": "<correct_answer>"
         },
         .
         .
@@ -63,20 +62,24 @@ class Database:
         self.data['settings'][setting] = value
         self.save_data()
 
-    def add_quote(self, question, answer, freq):
-        """Add quote entry"""
+    def add_question(self, question, answer):
         entry = {"question": question,
-                 "answer": answer,
-                 "frequency": freq}
+                 "answer": answer}
         self.data['quotes'].append(entry)
         self.save_data()
 
-    def get_quotes_and_weights(self):
+    def get_questions(self):
         entries = self.data.get('quotes')
-        return entries, [x.get('frequency') for x in entries]
+        return entries
 
     def get_random_image(self):
-        return 'img/' + random.choice(os.listdir('img/'))
+        directories = []
+        for f in os.listdir("img/"):
+            directories.append(f)
+
+        directory = random.choices(directories, [int(x) for x in directories])[0]
+        filename = random.choice(os.listdir('img/' + directory + '/'))
+        return f'img/{directory}/{filename}'
 
     def get_setting(self, setting, default=None):
         """Get a setting"""
@@ -104,27 +107,3 @@ class Database:
         # save modified data to file
         self.save_data()
         print(f"Added {amount} [{item}] to user [{user.name}#{user.discriminator}]")
-
-    def remove_inventory_item(self, user, item, amount=1):
-        """Remove inventory item from given user
-        :returns False if removal failed, True on success"""
-
-        # if user doesn't exist, just return
-        if str(user.id) not in self.data['users']:
-            return False
-
-        # if item doesn't exist, just return
-        if item not in self.data['users'][str(user.id)]:
-            return False
-
-        # remove [amount] from item quantity
-        self.data['users'][str(user.id)][item] -= amount
-
-        # if 0 or less, cleanup and delete entry
-        if self.data['users'][str(user.id)][item] <= 0:
-            del self.data['users'][str(user.id)][item]
-
-        # save modified data to file
-        self.save_data()
-        print(f"Removed {amount} [{item}] from user [{user.name}#{user.discriminator}]")
-        return True

@@ -34,22 +34,21 @@ class Events(commands.Cog):
 
         elif isinstance(error, commands.NotOwner):
             print(str(error))
-            owner = await self.client.application_info().owner
-            return await ctx.send(f"Sorry, this command usable by the bot owner only! (**{owner}**)")
 
         elif isinstance(error, commands.MissingPermissions):
             print(str(error))
             perms = ', '.join([f"**{x}**" for x in error.missing_perms])
-            return await ctx.send(f"You are missing the required permissions to use this command: {perms}")
+            return await ctx.send(f"`ERROR: Missing permissions` You need the {perms} permission to use this command!")
 
         elif isinstance(error, commands.BotMissingPermissions):
             print(str(error))
             perms = ', '.join([f"**{x}**" for x in error.missing_perms])
-            return await ctx.send(f"I am missing the required permissions to execute this command: {perms}")
+            return await ctx.send(f"`ERROR: Bot missing permissions` "
+                                  f"I need the {perms} permission to execute this command!")
 
         elif isinstance(error, commands.MissingRequiredArgument):
             print(str(error))
-            return await ctx.send(f"**ERROR:** Missing required argument `{error.param}`")
+            return await ctx.send(f"`ERROR: Missing argument` Missing required argument `{error.param}`")
 
         else:
             print(f"Ignoring exception in command {ctx.command}:")
