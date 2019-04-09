@@ -4,6 +4,7 @@
 import json
 import os
 import random
+import copy
 
 
 """ DATABASE STRUCTURE ### data.json
@@ -87,6 +88,13 @@ class Database:
 
     def get_inventory(self, user):
         if str(user.id) in self.data['users']:
+
+            # check if image exists on disk
+            inv = copy.copy(self.data['users'][str(user.id)])
+            for item in inv:
+                if not os.path.isfile(item):
+                    self.remove_inventory_item(user, item, delete_all=True)
+
             return self.data['users'][str(user.id)]
         else:
             return {}
@@ -107,3 +115,30 @@ class Database:
         # save modified data to file
         self.save_data()
         print(f"Added {amount} [{item}] to user [{user.name}#{user.discriminator}]")
+
+    def remove_inventory_item(self, user, item, delete_all=False):
+        """Remove inventory item from given user
+        :returns False if removal failed, True on success"""
+
+        # if user doesn't exist, just return
+        if str(user.id) not in self.data['users']:
+            return False
+
+        # if item doesn't exist, just return
+        if item not in self.data['users'][str(user.id)]:
+            return False
+
+        if delete_all:
+            del self.data['users'][str(user.id)][item]
+        else:
+            # remove [amount] from item quantity
+            self.data['users'][str(user.id)][item] -= 1
+
+            # if 0 or less, cleanup and delete entry
+            if self.data['users'][str(user.id)][item] <= 0:
+                del self.data['users'][str(user.id)][item]
+
+        # save modified data to file
+        self.save_data()
+        print(f"Removed [{item}] from user [{user.name}#{user.discriminator}]")
+        return True
