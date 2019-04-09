@@ -25,7 +25,8 @@ class Game(commands.Cog):
         channel = message.guild.get_channel(database.get_setting("channel", message.channel.id))
 
         # correct guess
-        if self.current_question is not None and message.content.lower() == self.current_question.get('answer').lower():
+        if self.current_question is not None \
+                and message.content.casefold() == self.current_question.get('answer').casefold():
             response_image = database.get_random_image()
             await channel.send(file=discord.File(response_image))
             database.add_inventory_item(message.author, response_image)
@@ -38,7 +39,7 @@ class Game(commands.Cog):
             self.current_question = random.choice(database.get_questions())
             await channel.send(self.current_question.get('question'))
             self.counter = 0
-            self.threshold = random.randint(*database.get_setting("frequency", (10 - 20)))
+            self.threshold = random.randint(*database.get_setting("frequency", (10, 20)))
             self.sending = False
 
     @commands.command()
@@ -182,6 +183,13 @@ class Game(commands.Cog):
                 f"Frequency = every {f[0]} to {f[1]} messages"
 
             await ctx.send(m)
+
+    @commands.command()
+    async def view(self, ctx, filename):
+        for item in database.get_inventory(ctx.author):
+            if '.'.join(item.split('/')[-1].split('.')[:-1]) == filename:
+                return await ctx.send(file=discord.File(item))
+        await ctx.send(f"No image named {filename} found in your inventory!")
 
     @commands.command()
     async def inventory(self, ctx):
