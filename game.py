@@ -25,7 +25,7 @@ class Game(commands.Cog):
         channel = message.guild.get_channel(database.get_setting("channel", message.channel.id))
 
         # correct guess
-        if self.current_question is not None \
+        if self.current_question is not None and message.channel.id == channel.id \
                 and message.content.casefold() == self.current_question.get('answer').casefold():
             response_image = database.get_random_image()
             await channel.send(file=discord.File(response_image))
@@ -35,12 +35,15 @@ class Game(commands.Cog):
 
         if not self.sending and self.counter > self.threshold:
             # spawn question
-            self.sending = True
-            self.current_question = random.choice(database.get_questions())
-            await channel.send(self.current_question.get('question'))
-            self.counter = 0
-            self.threshold = random.randint(*database.get_setting("frequency", (10, 20)))
-            self.sending = False
+            await self.spawn_question(channel)
+
+    async def spawn_question(self, channel):
+        self.sending = True
+        self.current_question = random.choice(database.get_questions())
+        await channel.send(self.current_question.get('question'))
+        self.counter = 0
+        self.threshold = random.randint(*database.get_setting("frequency", (10, 20)))
+        self.sending = False
 
     @commands.command()
     @commands.is_owner()
@@ -51,8 +54,9 @@ class Game(commands.Cog):
     @commands.command()
     @commands.is_owner()
     async def spawn(self, ctx):
-        """Set image to spawn on next message"""
-        self.counter = self.threshold
+        """Force question to spawn"""
+        channel = ctx.guild.get_channel(database.get_setting("channel", ctx.channel.id))
+        await self.spawn_question(channel)
 
     @commands.command()
     @commands.is_owner()

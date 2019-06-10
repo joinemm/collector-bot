@@ -76,10 +76,16 @@ class Database:
     def get_random_image(self):
         directories = []
         for f in os.listdir("img/"):
-            directories.append(f)
+            try:
+                int(f)
+                if os.listdir('img/' + f + '/'):
+                    directories.append(f)
+            except ValueError:
+                continue
 
         directory = random.choices(directories, [int(x) for x in directories])[0]
-        filename = random.choice(os.listdir('img/' + directory + '/'))
+        directory_items = os.listdir('img/' + directory + '/')
+        filename = random.choice(directory_items)
         return f'img/{directory}/{filename}'
 
     def get_setting(self, setting, default=None):
@@ -94,6 +100,9 @@ class Database:
             for item in inv:
                 if not os.path.isfile(item):
                     self.remove_inventory_item(user, item, delete_all=True)
+                    reference = check_reference(item)
+                    if reference is not None:
+                        self.add_inventory_item(user, reference, inv[item])
 
             return self.data['users'][str(user.id)]
         else:
@@ -142,3 +151,14 @@ class Database:
         self.save_data()
         print(f"Removed [{item}] from user [{user.name}#{user.discriminator}]")
         return True
+
+
+def check_reference(path_to_image):
+    reference_path = f"img/reference/{path_to_image.split('/')[-1]}"
+    if os.path.isfile(reference_path):
+        return reference_path
+    else:
+        return None
+
+
+
