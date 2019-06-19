@@ -26,11 +26,13 @@ class Game(commands.Cog):
 
         # correct guess
         if self.current_question is not None and message.channel.id == channel.id \
-                and message.content.casefold() == self.current_question.get('answer').casefold():
-            response_image = database.get_random_image()
-            await channel.send(file=discord.File(response_image))
-            database.add_inventory_item(message.author, response_image)
+                and message.content.strip().casefold() == self.current_question.get('answer').casefold():
             self.current_question = None
+            response_image = database.get_random_image()
+            await channel.send(f"{message.author.mention} Correct Answer! You receive "
+                               f"**{response_image.split('/')[-1].partition('.')[0]}**",
+                               file=discord.File(response_image))
+            database.add_inventory_item(message.author, response_image)
             return
 
         if not self.sending and self.counter > self.threshold:
@@ -53,8 +55,25 @@ class Game(commands.Cog):
 
     @commands.command()
     @commands.is_owner()
+    async def whitelist(self, ctx, _user):
+        """Whitelist someone so they can use the spawn command"""
+        user = await commands.UserConverter().convert(ctx, _user)
+        database.whitelist(user.id)
+        await ctx.send(f"whitelisted **{user.name}**")
+
+    @commands.command()
+    @commands.is_owner()
+    async def unwhitelist(self, ctx, _user):
+        """Whitelist someone so they can use the spawn command"""
+        user = await commands.UserConverter().convert(ctx, _user)
+        database.unwhitelist(user.id)
+        await ctx.send(f"removed **{user.name}** from the whitelist")
+
+    @commands.command()
     async def spawn(self, ctx):
         """Force question to spawn"""
+        if ctx.author.id not in database.get_whitelist(ctx):
+            return await ctx.send("Sorry, you are not authorized to use this command!")
         channel = ctx.guild.get_channel(database.get_setting("channel", ctx.channel.id))
         await self.spawn_question(channel)
 
@@ -140,19 +159,25 @@ class Game(commands.Cog):
 
     @commands.command()
     @commands.is_owner()
-    async def add(self, ctx, *args):
+    async def add(self, ctx, *, arguments):
         """Add a new question"""
         try:
-            question, answer = [x.strip() for x in " ".join(args).split("|")]
+            question, answer = arguments.split("|")
         except ValueError:
             await ctx.send(f"`ERROR: Invalid format` Usage: "
                            f"`{self.client.command_prefix}add <question> | <answer>`")
             return
 
-        database.add_question(question, answer)
+        database.add_question(question.strip(), answer.strip())
 
         await ctx.send(f"Added a new question: `{question}`\n"
                        f"With correct answer: `{answer}`\n")
+
+    @commands.command()
+    @commands.is_owner()
+    async def remove(self, ctx, *, question):
+        result = database.remove_question(question)
+        await ctx.send("Removed the question" if result else "Could not find that question")
 
     @commands.command()
     @commands.is_owner()

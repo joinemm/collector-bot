@@ -11,6 +11,8 @@ client = commands.Bot(command_prefix="q!")  # change prefix here
 
 @client.event
 async def on_ready():
+    if not hasattr(client, 'appinfo'):
+        client.appinfo = await client.application_info()
     print("Bot is ready")
 
 if __name__ == "__main__":

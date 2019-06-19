@@ -52,6 +52,8 @@ class Database:
                 self.data['users'] = {}
             if 'quotes' not in self.data:
                 self.data['quotes'] = []
+            if 'whitelist' not in self.data:
+                self.data['whitelist'] = []
 
     def save_data(self):
         """Save data to file"""
@@ -68,6 +70,15 @@ class Database:
                  "answer": answer}
         self.data['quotes'].append(entry)
         self.save_data()
+
+    def remove_question(self, question):
+        for i in range(len(self.get_questions())):
+            if self.data['quotes'][i].get('question').lower() == question.lower():
+                del self.data['quotes'][i]
+                print("deleted", question)
+                self.save_data()
+                return True
+            return False
 
     def get_questions(self):
         entries = self.data.get('quotes')
@@ -152,13 +163,29 @@ class Database:
         print(f"Removed [{item}] from user [{user.name}#{user.discriminator}]")
         return True
 
+    def get_whitelist(self, ctx):
+        whitelist = self.data.get('whitelist', [])
+        return [ctx.bot.appinfo.owner.id] + whitelist
+
+    def whitelist(self, userid):
+        self.data['whitelist'].append(int(userid))
+        self.save_data()
+
+    def unwhitelist(self, userid):
+        self.data['whitelist'].remove(int(userid))
+        self.save_data()
+
 
 def check_reference(path_to_image):
     reference_path = f"img/reference/{path_to_image.split('/')[-1]}"
     if os.path.isfile(reference_path):
         return reference_path
     else:
-        return None
+        reference_path = f"img/Reference/{path_to_image.split('/')[-1]}"
+        if os.path.isfile(reference_path):
+            return reference_path
+        else:
+            return None
 
 
 
