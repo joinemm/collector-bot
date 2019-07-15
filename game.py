@@ -6,6 +6,7 @@ from discord.ext import commands
 import random
 import database
 import asyncio
+from operator import itemgetter
 
 database = database.Database()
 
@@ -64,7 +65,7 @@ class Game(commands.Cog):
     @commands.command()
     @commands.is_owner()
     async def unwhitelist(self, ctx, _user):
-        """Whitelist someone so they can use the spawn command"""
+        """Remove user from the spawn whitelist"""
         user = await commands.UserConverter().convert(ctx, _user)
         database.unwhitelist(user.id)
         await ctx.send(f"removed **{user.name}** from the whitelist")
@@ -223,16 +224,21 @@ class Game(commands.Cog):
     @commands.command()
     async def inventory(self, ctx):
         """see your inventory"""
-        content = discord.Embed(title=f"{ctx.author.name}'s inventory")
+        per_page = 10
+        content = discord.Embed()
         content.description = ""
         rows = []
         pages = []
+        total_qty = 0
         for item, qty in database.get_inventory(ctx.author).items():
             rows.append(f"{'.'.join(item.split('/')[-1].split('.')[:-1])} : **{qty}**")
+            total_qty += qty
 
-            if len(rows) == 10:
+            if len(rows) == per_page:
                 pages.append("\n".join(rows))
                 rows = []
+
+        content.title = f"{ctx.author.name}'s inventory - Total {total_qty} items"
 
         if rows:
             pages.append("\n".join(rows))
@@ -242,41 +248,110 @@ class Game(commands.Cog):
         else:
             content.description = pages[0]
 
-        content.set_footer(text=f"page 1 of {len(pages)}")
+        if len(pages) > 1:
+            content.set_footer(text=f"page 1 of {len(pages)}")
+
         my_msg = await ctx.send(embed=content)
 
+        current_page = 0
+
+        def check(_reaction, _user):
+            return _reaction.message.id == my_msg.id and not _user == self.client.user
+
         if len(pages) > 1:
-
-            current_page = 0
-
-            def check(_reaction, _user):
-                return _reaction.message.id == my_msg.id and _reaction.emoji in ["⬅", "➡"] \
-                       and not _user == self.client.user
-
             await my_msg.add_reaction("⬅")
             await my_msg.add_reaction("➡")
+        await my_msg.add_reaction("🔡")
+        await my_msg.add_reaction("#⃣")
 
-            while True:
-                try:
-                    reaction, user = await self.client.wait_for('reaction_add', timeout=3600.0, check=check)
-                except asyncio.TimeoutError:
-                    return
-                else:
+        while True:
+            try:
+                reaction, user = await self.client.wait_for('reaction_add', timeout=3600.0, check=check)
+            except asyncio.TimeoutError:
+                return
+            else:
+                if len(pages) > 1:
                     try:
-                        if reaction.emoji == "⬅" and current_page > 0:
-                            content.description = pages[current_page - 1]
-                            current_page -= 1
+                        if reaction.emoji == "⬅":
+                            if current_page > 0:
+                                current_page -= 1
+                                content.description = pages[current_page]
+                                content.set_footer(text=f"page {current_page + 1} of {len(pages)}")
+
+                            await my_msg.edit(embed=content)
                             await my_msg.remove_reaction("⬅", user)
+
                         elif reaction.emoji == "➡":
-                            content.description = pages[current_page + 1]
-                            current_page += 1
+                            if current_page < len(pages) - 1:
+                                current_page += 1
+                                content.description = pages[current_page]
+                                content.set_footer(text=f"page {current_page + 1} of {len(pages)}")
+
+                            await my_msg.edit(embed=content)
                             await my_msg.remove_reaction("➡", user)
-                        else:
-                            continue
-                        content.set_footer(text=f"page {current_page + 1} of {len(pages)}")
-                        await my_msg.edit(embed=content)
+
                     except IndexError:
-                        continue
+                        pass
+                if reaction.emoji == "🔡":
+                    pages = []
+                    rows = []
+                    for item, qty in sorted(database.get_inventory(ctx.author).items(), key=itemgetter(0)):
+                        rows.append(f"{'.'.join(item.split('/')[-1].split('.')[:-1])} : **{qty}**")
+
+                        if len(rows) == per_page:
+                            pages.append("\n".join(rows))
+                            rows = []
+                    if rows:
+                        pages.append("\n".join(rows))
+
+                    content.description = pages[0]
+                    await my_msg.edit(embed=content)
+                    await my_msg.remove_reaction("🔡", user)
+                elif reaction.emoji == "#⃣":
+                    pages = []
+                    rows = []
+                    for item, qty in sorted(database.get_inventory(ctx.author).items(),
+                                            key=itemgetter(1), reverse=True):
+                        rows.append(f"{'.'.join(item.split('/')[-1].split('.')[:-1])} : **{qty}**")
+
+                        if len(rows) == per_page:
+                            pages.append("\n".join(rows))
+                            rows = []
+                    if rows:
+                        pages.append("\n".join(rows))
+
+                    content.description = pages[0]
+                    await my_msg.edit(embed=content)
+                    await my_msg.remove_reaction("#⃣", user)
+                else:
+                    continue
+
+    @commands.command()
+    async def leaderboard(self, ctx):
+        """Show the top collectors leaderboard"""
+        content = discord.Embed()
+        content.title = f"Top 5 collectors"
+        content.description = ''
+
+        usersdata = []
+        data = database.get_users()
+        for userid in data:
+
+            user = self.client.get_user(int(userid))
+
+            qty = 0
+            for item in data[userid]:
+                qty += data[userid][item]
+            usersdata.append((user, qty))
+
+        n = 0
+        for user, qty in sorted(usersdata, key=itemgetter(1), reverse=True):
+            if n == 5:
+                break
+            content.description += f"\n`{n + 1}.` **{user.name}** - **{qty}**"
+            n += 1
+
+        await ctx.send(embed=content)
 
 
 def setup(client):

@@ -175,6 +175,9 @@ class Database:
         self.data['whitelist'].remove(int(userid))
         self.save_data()
 
+    def get_users(self):
+        return self.data['users']
+
 
 def check_reference(path_to_image):
     reference_path = f"img/reference/{path_to_image.split('/')[-1]}"
