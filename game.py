@@ -295,8 +295,9 @@ class Game(commands.Cog):
                 if reaction.emoji == "🔡":
                     pages = []
                     rows = []
-                    for item, qty in sorted(database.get_inventory(ctx.author).items(), key=itemgetter(0)):
-                        rows.append(f"{'.'.join(item.split('/')[-1].split('.')[:-1])} : **{qty}**")
+                    inv = database.get_inventory(ctx.author)
+                    for item in sorted(inv.keys(), key=lambda x: '.'.join(x.split('/')[-1].split('.')[:-1]).lower()):
+                        rows.append(f"{'.'.join(item.split('/')[-1].split('.')[:-1])} : **{inv[item]}**")
 
                         if len(rows) == per_page:
                             pages.append("\n".join(rows))
